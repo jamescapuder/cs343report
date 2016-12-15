@@ -27,8 +27,8 @@
 
 \usepackage{mathpazo} % Use the Palatino font
 \usepackage[T1]{fontenc} % Required for accented characters
-\linespread{1.05} % Change line spacing here, Palatino benefits from a slight increase by default
-
+\linespread{1.25} % Change line spacing here, Palatino benefits from a slight increase by default
+%\usepackage[1.0in]{geometry}
 \makeatletter
 \renewcommand\@biblabel[1]{\textbf{#1.}} % Change the square brackets for each bibliography item from '[1]' to '1.'
 \renewcommand{\@listI}{\itemsep=0pt} % Reduce the space between items in the itemize and enumerate environments and the bibliography
@@ -50,7 +50,7 @@
 %	TITLE
 %----------------------------------------------------------------------------------------
 
-\title{\textbf{Exploring DNS }\\ % Title
+\title{\textbf{Exploring DNS Security}\\ % Title
 Focused and Deliciously Witty Subtitle} % Subtitle
 
 \author{\textsc{J. Berretta, J. Capuder, E. Guendel} % Author
@@ -84,11 +84,13 @@ The security of common internet protocols is an important issue when considering
 
 \section*{Introduction}
 
-This statement requires citation \cite{Smith:2012qr}; this one does too \cite{Smith:2013jd}. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean dictum lacus sem, ut varius ante dignissim ac. Sed a mi quis lectus feugiat aliquam. Nunc sed vulputate velit. Sed commodo metus vel felis semper, quis rutrum odio vulputate. Donec a elit porttitor, facilisis nisl sit amet, dignissim arcu. Vivamus accumsan pellentesque nulla at euismod. Duis porta rutrum sem, eu facilisis mi varius sed. Suspendisse potenti. Mauris rhoncus neque nisi, ut laoreet augue pretium luctus. Vestibulum sit amet luctus sem, luctus ultrices leo. Aenean vitae sem leo.
+One of the most important requirements of any communication network, such as the internet or the United States Postal Service, is the ability to uniquely identify and locate participants of the network. This requirement is often met by assigning some form of address to participants: to determine the location to which an outgoing letter should be delivered, the sender must specify country of the recipient, what part of the country they live in, and finally the specific street/number combination at which the recipient resides. This system, however, was designed for human comprehension, and could be more concisely represented by numerical coordinates if readability was not an issue. A similar issue arrises when considering the numerical Internet Protocol addresses (IP addresses) used to identify computers and resources connected to the internet: IP addresses are convenient for use in networking protocols, but are difficult for humans to memorize. The Domain Name System (DNS) is in place to allow individuals or companies to register readable domain names (www.google.com) that can be mapped to the IP addresses needed to locate certain computers on the network, and is fundamental to the functionality of the internet.
 
-Nullam semper quam at ante convallis posuere. Ut faucibus tellus ac massa luctus consectetur. Nulla pellentesque tortor et aliquam vehicula. Maecenas imperdiet euismod enim ut pharetra. Suspendisse pulvinar sapien vitae placerat pellentesque. Nulla facilisi. Aenean vitae nunc venenatis, vehicula neque in, congue ligula.
+When considering the secuirty of systems as important to the internet as the DNS, one might hope that the conventional principles of \textbf{C.I.A.}\footnote{\textbf{Confidentiality:} Only authorized parties should be able to view data; \textbf{Integrity:} Data should not be altered in any unauthorized fashion; \textbf{Availability:} Data should be available to and modifiable by authorized individuals.}  
 
-Pellentesque quis neque fringilla, varius ligula quis, malesuada dolor. Aenean malesuada urna porta, condimentum nisl sed, scelerisque nisi. Suspendisse ac orci quis massa porta dignissim. Morbi sollicitudin, felis eget tristique laoreet, ante lacus pretium lacus, nec ornare sem lorem a velit. Pellentesque eu erat congue, ullamcorper ante ut, tristique turpis. Nam sodales mi sed nisl tincidunt vestibulum. Interdum et malesuada fames ac ante ipsum primis in faucibus.
+
+
+
 
 %------------------------------------------------
 

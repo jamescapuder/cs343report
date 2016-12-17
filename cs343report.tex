@@ -218,7 +218,7 @@ public String visitWebPage(Url query){
 
 Here we consistently check the cache to see if we have an entry for the corresponding query, making a new request every time we don’t. Eventually, once the DNS gets an answer back from the name servers or looks it up in its own cache, it’ll call the Client’s message function, which will put the answer in the cache and cause the function above to break out of the while loop and return the address. 
 
-\subsection{DNS}
+\subsection*{DNS}
 
 The DNS is the main tool for the attack and the server whose cache gets poisoned. It operates in many ways similarly to the Client class, except that its message function is more sophisticated because of the interactions with the name servers.
 
@@ -301,6 +301,79 @@ if (message.getType() == MessageTypes.WHERE) {
 
 The first check is to make sure that this is coming from  client, and if it’s not, simply return. If it is, obtain the query and extract the address from the cache before packaging it into a response object (Message) and sending it back.
 
+\subsection*{TTL}
+
+The TTL (Time To Live) concept is essential when considering caches. A cache will only hold the information in it as long as the time to live allows it to. Moreover, a DNS server will ignore any responses from the name servers as long as its cache is occupied. Thus the attacker can only perform the exploit once every time the TTL expires. We created a class that holds these class variables. 
+
+\begin{lstlisting}
+private long expirationTime;
+public static final long DEFAULT_TTL = 10000;
+\end{lstlisting}
+
+The rest is composed of an empty constructor that initializes the expirationTime to the default, and one that takes in an explicit value. Lastly, there’s a getter method for expirationTime. 
+
+\subsection*{Cache}
+
+The cache is an simple yet very important component of this project, which is why we decided to encapsulate it in its own class as opposed to just having a hashmap. Besides containing a map of Url to String, it also contains a map of Url to TTL:
+
+\begin{lstlisting}
+private Map<Url, String> cache;
+private Map<TTL, Url> ttls;
+\end{lstlisting}
+
+We implemented methods to add to the cache when given a URL, IP address and a TTL, as well as check for containment. The most important component is the nested class, CachePurger, which extends the Java Runnable interface. The Java documentation describes this interface: “The Runnable interface should be implemented by any class whose instances are intended to be executed by a thread. The class must define a method of no arguments called run.” Our implemented class periodically visits the entries of a given cache and clears any cache entries whose TTLs have expired. We chose to start running this thread inside the constructor. The run method was implemented as follows:
+
+\begin{lstlisting}
+public void run() {
+    while (true) {
+	    sleepUntilUnset(entering);
+        for (TTL ttl : ttls.keySet()) {
+            if (getCurrentTime() >= ttl.getExpTime()) {
+            lock.lock()
+            Url expired = ttls.get(ttl);
+            remove(expired);
+            ttls.remove(ttl);
+            lock.unlock()
+            }
+        }
+    // Only do this once per second
+    try {
+        Thread.sleep(1000);
+    } catch (InterruptedException e) {
+        run();
+    }
+    }
+}
+\end{lstlisting}
+
+The TTL map is used to iterate across all the entries and compare with the current time. Once one is found that has expired, the corresponding Url is retrieved out of the TTL map and removed from the cache. The thread then sleep for a second before performing the check again. The rest of the methods are getters and setters. 
+
+\subsection*{TXID}
+
+TXIDs are used to verify the validity of a package, and in line with the the standard DNS implementations, it’s a 16 bit digit. This class contains a static method that just returns a string of 16 random bits.  
+
+\subsection*{Log}
+
+This class contains static logging methods that provide ease and flexibility when tracking the activity of the simulation. There are three logging methods, all of which take a TAG and an a String. The tag is used to identify where the logging message is coming from (DNS, Client, Name Server or Attacker).
+
+This uses Java's System.err.println() to print out a warning:
+
+\begin{lstlisting}
+public static void w(String tag, String warning)
+\end{lstlisting}
+
+\begin{lstlisting}
+public static void e(String tag, String error) 
+\end{lstlisting}
+
+Is similar to w except it it calls System.exit(1) after logging, effectively shutting down the simulation, due to an error. 
+\begin{lstlisting}
+public static void i(String tag, String info) 
+\end{lstlisting}
+
+This simply prints out certain information to keep the user updated with the progress. For example, it’s used to notify when the DNS server has received a request from a client. 
+
+
 \subsection*{Name Server}
 
 The NameServer class is initialized by each Simulation. The simulations pass it a list of known web pages and a list of trusted DNS servers. The first step is to preprocess each URL wntry, which consists of a raw address and IP address. We created a Url class to allow us to easily store and manipulate the parts of a URL. An instance of the URL class stores an array of "parts", that is to say a segmented version of the raw address by the dots. We have some methods to help the name server find the next name server to tell the DNS server to talk to, which we will get to once we describe the respective methods in the NameServer class.
@@ -351,7 +424,61 @@ The attack method takes a desired malicious URL and legitimate URL to target and
 
 Notice that the code above creates two threads each with a different runnable: Request and Response. The nested Request class sends a query to the DNS server for the legitimate address. The nested Response class creates a fake response by spoofing the authoritative name server's address and randomly generating a TXID. It states that the address of the malicious URL is the address of the fake URL. Thanks to the birthday paradox, there is a decent probability of getting a match after a couple hundred spoofed requests and responses.
 
-\subsection{Attack Simulation}
+\subsection*{Unfettered Simulation}
+
+The first goal of the project was to get a normal simulation up and running, with no attacker or poisoning involved. This is precisely what this class is intended for. It has the potential to be poisoned, but that is done only in the AttackerSimulation. The class variables are these:
+
+\begin{lstlisting}
+private List<Url> pagesToVisit;
+private String knownWebPages;
+private Client client;
+private NameServer root;
+private DNS dns;
+\end{lstlisting}
+
+The list of Urls is used to keep all the URLs that we want our simulation to "visit", that is, retrieve their respective IP addresses. The following String, knownWebPages, is just the name of the file that contains a list of all web pages in our simulation of the internet. It's used for the initialization of the name servers, refer to that section for a more detailed explanation. The rest are quite self-explanatory.
+
+The constructor takes in a list of web pages to visit and the knownWebPages file name for the name server constructor. This is occurs inside:
+\begin{lstlisting}
+this.pagesToVisit = pagesToVisit;
+this.knownWebPages = knownWebPages;
+DNS dns = new DNS();
+this.dns = dns;
+Set<Node> dnsServers = new HashSet<Node>();
+dnsServers.add(dns);
+NameServer rootNS = new NameServer(knownWebPages, dnsServers, "128.532.543.645");
+this.root = rootNS;
+dns.init(rootNS);
+this.client = new Client(dns);
+\end{lstlisting}
+
+It begins creating the DNS server and adding it to a set, which is then passed into the constructor for the root name server. This was done via a set because future work could include implementing the simulation with multiple DNS servers, which would be easy to extend. The root server is initialized with the knownWebPages, DNS servers and a given address, which we hardcoded. Since the root server requires DNS servers to be initialized, but the DNS server itself requires a root server for its own creation, we delay the task to DNS’ init() method, instead of the constructor. Lastly, we create the client by passing in the DNS server it will refer to.
+
+The method unfettered(), runs the simulation by iterating through the list of web pages and calls the client’s visitWebPage on them. 
+
+\begin{lstlisting}
+for (Url url : pagesToVisit) {
+	String answer = client.visitWebPage(url);
+	System.out.println("\tClient received IP successfully!");
+}
+\end{lstlisting}
+
+The main method puts all the pieces together to execute the simulation:
+
+\begin{lstlisting}
+public static void main(String[] args) {
+	System.out.println("---------- Unfettered Simulation ----------");
+	List<Url> pagesToVisit = new LinkedList<Url>();
+	pagesToVisit.add(new Url("www.oberlin.edu", "192.168.1.1"));
+	new Simulation(pagesToVisit, "addresses.txt").unfettered();
+		System.out.println("---------- Unfettered Simulation End -------");
+}
+\end{lstlisting}
+
+
+
+
+\subsection*{Attack Simulation}
 
 The attacker simulation first initializes a set of web pages to target using the URL class. We then initialize the necessary components to start an unfettered simulation, but, before starting it, we bring in an attacker. We initialize the attacker and invoke the attack method with a malicious URL passed as the target along with the web pages the unfettered simulation plans on visiting. Once the simulation determines that the attacker successfully poisoning the cache, we begin the unfettered simulation. If all went well, the simulation will go a bit differently this time. The returned address to the client's query should be the malicious address.
 

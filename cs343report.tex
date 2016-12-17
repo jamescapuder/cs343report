@@ -49,6 +49,8 @@
 
 \usepackage{hyperref}
 
+\usepackage[margin=1.0in]{geometry}	
+
 \usepackage{mathpazo} % Use the Palatino font
 \usepackage[T1]{fontenc} % Required for accented characters
 \linespread{1.25} % Change line spacing here, Palatino benefits from a slight increase by default
@@ -74,8 +76,7 @@
 %	TITLE
 %----------------------------------------------------------------------------------------
 
-\title{\textbf{Exploring DNS Security}\\ % Title
-Focused and Deliciously Witty Subtitle} % Subtitle
+\title{\textbf{Exploring DNS Security}} % Subtitle
 
 \author{\textsc{J. Berretta, J. Capuder, E. Guendel} % Author
 \\{\textit{Oberlin College}}} % Institution
@@ -118,7 +119,7 @@ One of the most important requirements of any communication network, such as the
 
 The specific DNS protocol we examine in this report is referred to as a client lookup, as this protocol is vulnerable to an attack known as cache poisoning\cite{Son}. A client lookup is initiated whenever an application on a client's computer sends a request that requires a domain name to be translated to an IP address. The application will first send a request to a domain name resolver, which will check its cache of recent lookups for a response to the request. If the cache contains an appropriate response, the resolver will return it to the sender of the request; if not, the resolver will send the request to the root name server. The root name server will check its cache, and either return a cached response, or tell the DNS resolver the location of the next name server it should query\cite{Son}. This process is repeated until the resolver receives a final response, which it will cache and return to the client\cite{Racki}.
 
-The ultimate goal of a cache poisoning attack is to trick the domain name resolver into caching an incorrect IP address, creating a false association between a domain name, like "www.google.com," and the location of the domain's servers. This in turn can divert users who try to visit the domain name in question to a malicious website. The process by which this attack is carried out begins with an attacker transmitting queries to the domain name resolver. The attacker then sends responses to the resolver that ordinarily come from name servers, but these responses have IP addresses that do not correspond to the domain name requested. The resolver will accept and cache these responses. Anyone who attempts to visit domains with compromised IP's before the cached responses expire will be directed to a computer of the attacker's choice. 
+The ultimate goal of a cache poisoning attack is to trick the domain name resolver into caching an incorrect IP address, creating a false association between a domain name, like "www.google.com," and the location of the domain's servers\cite{Schuba}. This in turn can divert users who try to visit the domain name in question to a malicious website. The process by which this attack is carried out begins with an attacker transmitting queries to the domain name resolver. The attacker then sends responses to the resolver that ordinarily come from name servers, but these responses have IP addresses that do not correspond to the domain name requested. The resolver will accept and cache these responses. Anyone who attempts to visit domains with compromised IP's before the cached responses expire will be directed to a computer of the attacker's choice. 
 
 
 %------------------------------------------------
@@ -209,7 +210,7 @@ else {
 }
 \end{lstlisting}
 
-Once the DNS server has an answer for us, it’ll call this method. The message type will be FINAL since it contains the IP address that the client desires. Any other message types such as TRY and WHERE, which are meant only for the DNS, will be ignored. Once that message is received, we add the entry to our cache and log the event. 
+Once the DNS server has an answer for us, it'll call this method. The message type will be FINAL since it contains the IP address that the client desires. Any other message types such as TRY and WHERE, which are meant only for the DNS, will be ignored. Once that message is received, we add the entry to our cache and log the event. 
 
 All of these pieces are used together in visitWebPage, which returns the corresponding IP of a URL.
 
@@ -224,7 +225,7 @@ public String visitWebPage(Url query){
 }	
 \end{lstlisting}
 
-Here we consistently check the cache to see if we have an entry for the corresponding query, making a new request every time we don’t. Eventually, once the DNS gets an answer back from the name servers or looks it up in its own cache, it’ll call the Client’s message function, which will put the answer in the cache and cause the function above to break out of the while loop and return the address. 
+Here we consistently check the cache to see if we have an entry for the corresponding query, making a new request every time we don't. Eventually, once the DNS gets an answer back from the name servers or looks it up in its own cache, it'll call the Client's message function, which will put the answer in the cache and cause the function above to break out of the while loop and return the address. 
 
 \subsection*{DNS}
 
@@ -242,7 +243,7 @@ private Set<String> TXIDS_;
 private final ReentrantLock lock_;
 \end{lstlisting}
 
-The tag is for logging purposes, which allows us to track the progress of the simulation. The next three variables, a root name server, a cache and a client are all essentials for the basic functionality. We require a root name server to send requests to, who respond with either the IP address or a reference to the another name server to ask. The cache is required to be poisoned with a malicious address that is sent to the client. The client instance is required to send this malicious address back. Of these three, only the root name server is required as a parameter for initialization, since the DNS must know who to initially ask about a URL. The client could be anyone trying to communicate with the server, but we’ll see how this is assigned later. 
+The tag is for logging purposes, which allows us to track the progress of the simulation. The next three variables, a root name server, a cache and a client are all essentials for the basic functionality. We require a root name server to send requests to, who respond with either the IP address or a reference to the another name server to ask. The cache is required to be poisoned with a malicious address that is sent to the client. The client instance is required to send this malicious address back. Of these three, only the root name server is required as a parameter for initialization, since the DNS must know who to initially ask about a URL. The client could be anyone trying to communicate with the server, but we'll see how this is assigned later. 
 
 The following two variables are used to ensure the legitimacy of name server responses. expectedServers is a hashmap which is used to keep track of the name server from whom we are expecting a response following a request. The string is the address of such server and the integer is used to keep count of how many responses we expect from that server. This is done to avoid an attacker to flood the DNS with responses that have not been requested. While this is used to verify the source of the response, TXIDS is used to verify the validity of the response itself. This set contains TXIDs which are created at the moment the DNS receives a request from a client and included in the message itself. Once the final response arrives from a name server with the address, the TXID in the message is checked against the set, and only accepted if it exists. What this means is that the attacker only has to be able to guess one TXID within the set to have its response be cached. Additionally, it will have to spoof the address, in order to pretend like it's coming from a legitimate name server, which we assume the attacker knows. Finally, the ReentrantLock is used to protect the TXID set from one thread attempting to traverse it while another is editing it. This lock uses queue based priority to ensure thread safety. 
 
@@ -266,11 +267,11 @@ if (message.getType()==MessageTypes.WHERE){
 }	
 \end{lstlisting}
 
-As can be seen, we also ensure that every single client request gets assigned a unique TXID by avoiding creating one that’s already in the set - all while maintaining thread safety. Since we know it was a client request due to the message type (WHERE), we assign the class variable of client to the source, effectively granting us the ability to contact it back. 
+As can be seen, we also ensure that every single client request gets assigned a unique TXID by avoiding creating one that's already in the set - all while maintaining thread safety. Since we know it was a client request due to the message type (WHERE), we assign the class variable of client to the source, effectively granting us the ability to contact it back. 
 
 Lastly, we send a request to the root name server, to which we simply pass on the message given by the client, with the only modification being the addition of the TXID. The root server is also added to the expected server hashmap, as to accept its response. 
 
-The next message type, TRY, is the name server’s response which refers to another name server to query. Once a TRY message goes through the two security checks (TXIDS and expectedServers), this occurs: 
+The next message type, TRY, is the name server's response which refers to another name server to query. Once a TRY message goes through the two security checks (TXIDS and expectedServers), this occurs: 
 
 \begin{lstlisting}
 NameServer nextServer = message.getNextServer();
@@ -280,7 +281,7 @@ addToExpected(nextServer.getAddress());
 nextServer.message(this, new Message(message.getQuery(), message.getTXID()));
 \end{lstlisting}
 
-The response contains the next server, which is extracted. The address of the server we just received from is subtracted from the expected count, and the next name server’s address is added to the expected. Finally, a new request is constructed and sent to the next name server. 
+The response contains the next server, which is extracted. The address of the server we just received from is subtracted from the expected count, and the next name server's address is added to the expected. Finally, a new request is constructed and sent to the next name server. 
 
 Once we get a FINAL message, the DNS has completed its objective: 
 
@@ -307,7 +308,7 @@ if (message.getType() == MessageTypes.WHERE) {
 }
 \end{lstlisting}
 
-The first check is to make sure that this is coming from  client, and if it’s not, simply return. If it is, obtain the query and extract the address from the cache before packaging it into a response object (Message) and sending it back.
+The first check is to make sure that this is coming from  client, and if it's not, simply return. If it is, obtain the query and extract the address from the cache before packaging it into a response object (Message) and sending it back.
 
 \subsection*{TTL}
 
@@ -318,7 +319,7 @@ private long expirationTime;
 public static final long DEFAULT_TTL = 10000;
 \end{lstlisting}
 
-The rest is composed of an empty constructor that initializes the expirationTime to the default, and one that takes in an explicit value. Lastly, there’s a getter method for expirationTime. 
+The rest is composed of an empty constructor that initializes the expirationTime to the default, and one that takes in an explicit value. Lastly, there's a getter method for expirationTime. 
 
 \subsection*{Cache}
 
@@ -358,7 +359,7 @@ The TTL map is used to iterate across all the entries and compare with the curre
 
 \subsection*{TXID}
 
-TXIDs are used to verify the validity of a package, and in line with the the standard DNS implementations, it’s a 16 bit digit. This class contains a static method that just returns a string of 16 random bits.  
+TXIDs are used to verify the validity of a package, and in line with the the standard DNS implementations, it's a 16 bit digit. This class contains a static method that just returns a string of 16 random bits.  
 
 \subsection*{Log}
 
@@ -379,7 +380,7 @@ Is similar to w except it it calls System.exit(1) after logging, effectively shu
 public static void i(String tag, String info) 
 \end{lstlisting}
 
-This simply prints out certain information to keep the user updated with the progress. For example, it’s used to notify when the DNS server has received a request from a client. 
+This simply prints out certain information to keep the user updated with the progress. For example, it's used to notify when the DNS server has received a request from a client. 
 
 
 \subsection*{Name Server}
@@ -460,9 +461,9 @@ dns.init(rootNS);
 this.client = new Client(dns);
 \end{lstlisting}
 
-It begins creating the DNS server and adding it to a set, which is then passed into the constructor for the root name server. This was done via a set because future work could include implementing the simulation with multiple DNS servers, which would be easy to extend. The root server is initialized with the knownWebPages, DNS servers and a given address, which we hardcoded. Since the root server requires DNS servers to be initialized, but the DNS server itself requires a root server for its own creation, we delay the task to DNS’ init() method, instead of the constructor. Lastly, we create the client by passing in the DNS server it will refer to.
+It begins creating the DNS server and adding it to a set, which is then passed into the constructor for the root name server. This was done via a set because future work could include implementing the simulation with multiple DNS servers, which would be easy to extend. The root server is initialized with the knownWebPages, DNS servers and a given address, which we hardcoded. Since the root server requires DNS servers to be initialized, but the DNS server itself requires a root server for its own creation, we delay the task to DNS' init() method, instead of the constructor. Lastly, we create the client by passing in the DNS server it will refer to.
 
-The method unfettered(), runs the simulation by iterating through the list of web pages and calls the client’s visitWebPage on them. 
+The method unfettered(), runs the simulation by iterating through the list of web pages and calls the client's visitWebPage on them. 
 
 \begin{lstlisting}
 for (Url url : pagesToVisit) {
@@ -502,12 +503,7 @@ This indicates that the attacker can now stop. Of course, all the requests in pr
 
 \section*{Conclusion}
 
-Fusce in nibh augue. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. In dictum accumsan sapien, ut hendrerit nisi. Phasellus ut nulla mauris. Phasellus sagittis nec odio sed posuere. Vestibulum porttitor dolor quis suscipit bibendum. Mauris risus lectus, cursus vitae hendrerit posuere, congue ac est. Suspendisse commodo eu eros non cursus. Mauris ultrices venenatis dolor, sed aliquet odio tempor pellentesque. Duis ultricies, mauris id lobortis vulputate, tellus turpis eleifend elit, in gravida leo tortor ultricies est. Maecenas vitae ipsum at dui sodales condimentum a quis dui. Nam mi sapien, lobortis ac blandit eget, dignissim quis nunc.
-
-\begin{enumerate}
-\item First numbered list item
-\item Second numbered list item
-\end{enumerate}
+The security of DNS is an important issue: even today one of the most commonly used internet protocols remains vulnerable to this form of attack. Some security measures, namely DNSSEC, have been proposed and endorsed\cite{Herzberg}, but there are challenges in the adoption of this system that do not come to light in a simulation of this scale. Given more time and resources to pursue this project, we would attempt to scale our simulation up, and add components to flesh out our implementation of DNS lookups, as well as explore more nuanced attack methods.\cite{Herzberg}
 
 
 

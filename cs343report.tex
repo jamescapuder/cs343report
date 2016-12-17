@@ -301,6 +301,68 @@ if (message.getType() == MessageTypes.WHERE) {
 
 The first check is to make sure that this is coming from  client, and if it’s not, simply return. If it is, obtain the query and extract the address from the cache before packaging it into a response object (Message) and sending it back.
 
+\subsection*{Name Server}
+
+The NameServer class is initialized by each Simulation. The simulations pass it a list of known web pages and a list of trusted DNS servers. The first step is to preprocess each URL wntry, which consists of a raw address and IP address. We created a Url class to allow us to easily store and manipulate the parts of a URL. An instance of the URL class stores an array of "parts", that is to say a segmented version of the raw address by the dots. We have some methods to help the name server find the next name server to tell the DNS server to talk to, which we will get to once we describe the respective methods in the NameServer class.
+
+The first step is to build a tree out of the list of URLs. We represent each node of the tree as a Map from Strings to NameServers. We apply the following method for each URL (to the root NameServer).
+
+\begin{lstlisting}
+private void addEntry(Url url) {
+    if (url.isDepleted()) {
+        this.lookup = url.getAddress();
+        return;
+    }
+    String segment = url.nextSegment();
+    url.incrementPointer();
+    if (children.containsKey(segment)) {
+        NameServer child = children.get(segment);
+        child.addEntry(url);
+    } else {
+        NameServer child = new NameServer(...);
+        children.put(segment, child);
+        child.addEntry(url);
+    }
+}
+\end{lstlisting}
+
+The URL class points to the current "part" of the raw address we are on. If we've reached the end of a raw address, then we set the address entry of the current NameServer to the IP address specified by the URL instance. Otherwise, we query the URL class for the next portion of the address. If the children map already contains the key, we iterate through the URL, get the child NameServer from the map, and recursively apply this method to the child. If the key is not present, then we initialize a new NameServer using a private constructor. This private constructor takes in a raw address segment (so that we can keep track of which raw address this NameServer is meant to resolve queries for), along with the relevant instance variables of the parent NameServer. Once the child NameServer is initialized and added to the map, we recursively invoke the method on what remains of the URL.
+
+We now describe what occurs when a DNS server queries the root name server. Note that this is an iterative implementation of DNS (as opposed to a recursive implementation). That is to say the NameServer tells the DNS server which NameServer to query next if it does not have the answer. The first step is to verify that the DNS server talking to us is a trusted server. We also make sure that the query is in the right format. Next, we extract the queried raw address from the message. In the case that we are the name server that knows the IP address of this raw URL, we return a "final" message as a response with the IP address. Otherwise, we verify that this NameServer is on the right path through the tree from the root for the URL. If we are, then we use the URL class to find the next segment of the URL. We query our children map for the NameServer corresponding to the next segment and return its address as a response to the DNS server. We are careful to appropriately handle edge cases, such as when the child is not found or we are not in the path of the raw address.
+
+\subsection*{The Attacker}
+
+The attacker holds four fields: a target DNS server, the root NameServer, a malicious URL, and a legitimite URL to target. The constructor, invoked by the attacker simulation, takes the fields as input and sets them. The most important method is the attack method.
+
+\begin{lstlisting}
+public void attack(Url fake, Url legitimite) {
+    this.malicious = fake;
+    this.legitimite = legitimite;
+    
+    // send requests and spoofed responses until successful
+    while (!successful) {
+        new Thread(new Request(this)).start();
+        new Thread(new Response(this)).start();
+    }
+}
+\end{lstlisting}
+
+The attack method takes a desired malicious URL and legitimate URL to target and begins the flooding. When the attacker receives a response from the DNS server to one of its requests indicating that it has cached the malicious URL, the attacker sets its "successful" field to true to stop creating new threads and stops all currently running threads.
+
+Notice that the code above creates two threads each with a different runnable: Request and Response. The nested Request class sends a query to the DNS server for the legitimate address. The nested Response class creates a fake response by spoofing the authoritative name server's address and randomly generating a TXID. It states that the address of the malicious URL is the address of the fake URL. Thanks to the birthday paradox, there is a decent probability of getting a match after a couple hundred spoofed requests and responses.
+
+\subsection{Attack Simulation}
+
+The attacker simulation first initializes a set of web pages to target using the URL class. We then initialize the necessary components to start an unfettered simulation, but, before starting it, we bring in an attacker. We initialize the attacker and invoke the attack method with a malicious URL passed as the target along with the web pages the unfettered simulation plans on visiting. Once the simulation determines that the attacker successfully poisoning the cache, we begin the unfettered simulation. If all went well, the simulation will go a bit differently this time. The returned address to the client's query should be the malicious address.
+
+After pages of spam by the DNS server and Name Servers frantically handling the influx of requests, we see the following in our logs. (111.111.111.111 is our placeholder malicious address)
+
+\begin{verbatim}
+    DNS -- Adding the following to cache: {www.malicious.com:111.111.111.111}
+\end{verbatim}
+
+This indicates that the attacker can now stop. Of course, all the requests in progress are still jumping between the NameServers and DNS servers. They take a bit of time to subside, and the output sometimes continues happening even as the unfettered simulation is running. This can lead to some confusion logs, and a future goal could be to clean them up.
+
 %------------------------------------------------
 
 \section*{Conclusion}
